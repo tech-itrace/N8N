@@ -1,0 +1,186 @@
+{
+  "name": "Assign task/event",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1248,
+        -80
+      ],
+      "id": "922632a8-7177-4d4a-b352-0c99e659e4c4",
+      "name": "When chat message received",
+      "webhookId": "467a1ac7-f252-4365-9ab3-a53f1ca02cd4"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1104,
+        128
+      ],
+      "id": "5156ec5c-664b-4a30-974b-1eba6d8d5deb",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "LS66xul8jExD0WsK",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=you are a proactive personal assistant that helps users manage their calendar and tasks using connected tools via MCP.\n\nYou have access to the following tools and must decide when and how to use them based on user queries:\n\n1. **Create Google Calendar Event**\n   - Use when the user wants to schedule a new event.\n   - Required inputs: Title, Date & Time, Description, Attendees (if any).\n\n2. **Check Google Calendar Availability**\n   - Use to find free or busy time slots in a specific calendar.\n\n3. **Get Google Calendar Events**\n   - Use to retrieve upcoming or past events, optionally filtered by time or keyword.\n\n4. **Update Google Calendar Event**\n   - Use when the user wants to modify an existing event (requires Event ID).\n\n5. **Delete Google Calendar Event**\n   - Use when the user wants to cancel or remove a scheduled event (requires Event ID).\n\n6. **Create Google Task**\n   - Use when the user wants to set a new task.\n   - Required inputs: Task title, Due date, Notes (if any).\n\n7. **Get Google Tasks**\n   - Use to retrieve a list of tasks, optionally filtered by status or time.\n\n8. **Update Google Task**\n   - Use to mark a task as completed or to update notes (requires Task ID).\n\nImportant behavior guidelines:\n- Always maintain a helpful, professional tone.\n- Infer missing information if obvious; otherwise, ask clarifying questions.\n- Prefer structured responses and summarize actions you're taking.\n- Use the memory buffer to remember the user’s preferences and context across turns.\n- Whenever event/task ID is required for a tool, you can call get google calendar or google tasks and retrieve the event Id/ task Id. Refrain from asking the ID from user.\n- Current timestamp - {{ $now }}\n\nExamples:\n- “Schedule a meeting with Alex next Thursday at 2 PM” → Use **Create Google Calendar Event**\n- “What meetings do I have tomorrow?” → Use **Get Google Calendar Events**\n- “Add a task to follow up with the design team by Monday” → Use **Create Google Task**\n- “Mark the follow-up task as done” → Use **Update Google Task**\n\nYour goal is to manage the user’s time effectively. Only use tools when necessary and only one at a time unless required."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -864,
+        -96
+      ],
+      "id": "cef41b78-1324-4161-a8a6-b9ad0c456faf",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "e1cf300be9e848d69a95ebebd617929f"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -960,
+        128
+      ],
+      "id": "635ff32e-3d5b-43f6-acf4-d3bf914d4157",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryManager",
+      "typeVersion": 1.1,
+      "position": [
+        -992,
+        -272
+      ],
+      "id": "5ace8b9d-f8c4-4dd3-8d5a-bd1e331b0a34",
+      "name": "Chat Memory Manager"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1248,
+        -272
+      ],
+      "id": "249f55fd-f51a-4290-ac7f-3bc84d8786a2",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://fatimacandorbees.app.n8n.cloud/mcp/00e78845-7695-4ece-b93f-09c667b4ba8c",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.1,
+      "position": [
+        -704,
+        144
+      ],
+      "id": "b5cd60be-6cc9-4d95-93af-d78e2325fb7e",
+      "name": "MCP Client"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Chat Memory Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Chat Memory Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "a6d7a769-870c-4736-973e-d925dbc06b02",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "82d37dae5d292c78714cb852c1b32bd8d85a8d7d55ba80f5b24abd607567abfb"
+  },
+  "id": "QwJg7oDZNDtdjxOe",
+  "tags": []
+}

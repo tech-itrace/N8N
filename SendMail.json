@@ -1,0 +1,195 @@
+{
+  "name": "SendMail",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -432,
+        -48
+      ],
+      "id": "ce2fa51b-d546-49fa-98c0-6ec30bd426e6",
+      "name": "When chat message received",
+      "webhookId": "a6fbc65e-d8e1-42e6-9401-5e98f48eb710"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are an AI email assistant connected to a spreadsheet and gmail tool. Each row\ncontains the following fields:\n\n- Mail ID (email address of the recipient)\n- Name (recipient's name)\n- Character (a brief descriptor such as \"formal\", \"friendly\", \"casual\", \"enthusiastic\", etc.)\n\nYour task is to generate and SEND emails on Gmail tailored to each contact using the data\nfrom the sheet.\n\nHere’s how you must operate:\n- Use the Mail ID to identify the correct row in the sheet.\n- Retrieve the Name and Character fields for that Mail ID.\n- Generate a personalized and relevant email draft based on:\n  * The recipient’s name (use it in a natural way).\n  * The tone/style defined by the \"Character\" field. Adapt the vocabulary, formality, and sentence structure accordingly.\n  * Keep the email body concise, polite, and purpose-driven.\n\nExample Character styles you may encounter and how to adapt:\n- Formal: Use professional language, proper greetings, and full sentences.\n- Friendly: Be warm, approachable, and conversational.\n- Casual: Keep it relaxed, use contractions, and sound natural.\n- Enthusiastic: Show excitement, use exclamation marks sparingly, and be upbeat.\n\n⚠️ IMPORTANT: Always return the email in this exact JSON format only:\n{\n  \"To\": \"recipient@example.com\",\n  \"Subject\": \"Subject line here\",\n  \"Message\": \"Hi Name,\\n\\nBody text based on personality tone\\n\\nBest regards,\\nFatima Candorbees AI\"\n}\n\nDo not return plain text or explanations — only return valid JSON with these keys.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        -48
+      ],
+      "id": "b5a77dcc-534c-4652-82f1-ef0759cad6dd",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        160
+      ],
+      "id": "95f1d5b0-1850-4b6d-8284-00485c63f605",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "LS66xul8jExD0WsK",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -224,
+        160
+      ],
+      "id": "347b62d4-1511-4377-8456-3dc185aef204",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18Y-ZcQhZKshPlNCFgyYgo-W_gb-qBq9DYeak7fpKM6U",
+          "mode": "list",
+          "cachedResultName": "sample",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18Y-ZcQhZKshPlNCFgyYgo-W_gb-qBq9DYeak7fpKM6U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18Y-ZcQhZKshPlNCFgyYgo-W_gb-qBq9DYeak7fpKM6U/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        112,
+        160
+      ],
+      "id": "f76defcf-2ef7-4594-875d-15da2759b933",
+      "name": "Get row(s) in sheet in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ISVeUYpwDa49qpwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('To', ``, 'string') }}",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "emailType": "text",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "senderName": "Fatima"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.1,
+      "position": [
+        -80,
+        160
+      ],
+      "id": "81f43acf-ec45-41a9-b987-40bfe2cc50f1",
+      "name": "Send a message in Gmail",
+      "webhookId": "2ae98fc3-6548-481b-bc91-0023e8a4fbef",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "XrpYFUbikpSbIWPu",
+          "name": "Gmail account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message in Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "972fcf49-76e9-4488-aa84-b4374797be54",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "82d37dae5d292c78714cb852c1b32bd8d85a8d7d55ba80f5b24abd607567abfb"
+  },
+  "id": "MmDQ4pOCqnTzqrLf",
+  "tags": []
+}
