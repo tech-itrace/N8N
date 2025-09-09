@@ -1,0 +1,354 @@
+{
+    "name": "WA-Text-Voice-Message",
+    "nodes": [
+        {
+            "parameters": {
+                "updates": [
+                    "messages"
+                ],
+                "options": {}
+            },
+            "type": "n8n-nodes-base.whatsAppTrigger",
+            "typeVersion": 1,
+            "position": [
+                -832,
+                176
+            ],
+            "id": "87e82c1e-1b0a-4fa1-87e3-8b9950d8fc4a",
+            "name": "WhatsApp Trigger",
+            "webhookId": "a2cdd6b0-32ac-4099-8d64-f2a259ab397f",
+            "credentials": {
+                "whatsAppTriggerApi": {
+                    "id": "MywntExp6A6QMXDh",
+                    "name": "WhatsApp OAuth account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "4cd9ff19-5750-4515-bb9f-af14a2f890bf",
+                            "name": "=text",
+                            "value": "={{ $json.messages[0].text.body }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "2254ffa3-5a94-4c2a-b838-901f95afaae3",
+                            "name": "audio",
+                            "value": "={{ $json.messages[0].text.body }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "90b6005e-380d-402b-a77e-e4bc615c1f3b",
+                            "name": "",
+                            "value": "",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                -464,
+                16
+            ],
+            "id": "b301fd78-d412-482f-9fba-bcfe071027d4",
+            "name": "Map text prompt"
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.messages[0].type }}",
+                                        "rightValue": "text",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "id": "59047831-fe6f-418a-9abc-e328e532f431"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Text"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "291dad62-a127-4aa8-9beb-32704d5675ea",
+                                        "leftValue": "={{ $json.messages[0].type }}",
+                                        "rightValue": "audio",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals",
+                                            "name": "filter.operator.equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Audio"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.2,
+            "position": [
+                -624,
+                176
+            ],
+            "id": "b6d3ebdd-8ccc-4e4b-bd5f-2c6f6ac03d41",
+            "name": "Route Types"
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.mime_type }}{{ $json.text }}",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 2.2,
+            "position": [
+                64,
+                32
+            ],
+            "id": "2f178e72-1235-451b-b591-90daf67d9c64",
+            "name": "AI Agent"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                128,
+                304
+            ],
+            "id": "5df01d37-6a41-428a-a707-c662c4dc8f1d",
+            "name": "Google Gemini Chat Model",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "V9L9bw2J1B9bTVfi",
+                    "name": "Google Gemini(PaLM) Api account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "sessionIdType": "customKey",
+                "sessionKey": "=memory_{{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}"
+            },
+            "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+            "typeVersion": 1.3,
+            "position": [
+                272,
+                288
+            ],
+            "id": "e2c1c566-ce7f-4a2c-bb13-8986e8bebac7",
+            "name": "Simple Memory"
+        },
+        {
+            "parameters": {
+                "operation": "send",
+                "phoneNumberId": "658047077399745",
+                "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+                "textBody": "={{ $json.output.substring(0, 4000) }}",
+                "additionalFields": {}
+            },
+            "type": "n8n-nodes-base.whatsApp",
+            "typeVersion": 1,
+            "position": [
+                400,
+                48
+            ],
+            "id": "609a390e-a5ec-4aac-99ae-05af20d154b1",
+            "name": "Send Response",
+            "webhookId": "010825fa-6dfb-4074-a84c-c6ae36fe120b",
+            "credentials": {
+                "whatsAppApi": {
+                    "id": "FYMr10oaVlZaJUT8",
+                    "name": "WhatsApp account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "resource": "media",
+                "operation": "mediaUrlGet",
+                "mediaGetId": "={{ $json.messages[0].audio.id}}"
+            },
+            "type": "n8n-nodes-base.whatsApp",
+            "typeVersion": 1,
+            "position": [
+                -464,
+                240
+            ],
+            "id": "d433b713-7f17-434b-8519-95252565c941",
+            "name": "Gets WhatsApp Voicemail Source URL",
+            "webhookId": "e456fe69-4486-4293-9ea7-b60bdaaeee9d",
+            "credentials": {
+                "whatsAppApi": {
+                    "id": "FYMr10oaVlZaJUT8",
+                    "name": "WhatsApp account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.url }}",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                -320,
+                240
+            ],
+            "id": "b36ae423-1ebc-4c0d-aa1b-32d30abb11c8",
+            "name": "Download Voicemail",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "ZtOUbjdQJ0OFEhU0",
+                    "name": "Header Auth account"
+                }
+            }
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "WhatsApp Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Route Types",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Route Types": {
+            "main": [
+                [
+                    {
+                        "node": "Map text prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Gets WhatsApp Voicemail Source URL",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Map text prompt": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Simple Memory": {
+            "ai_memory": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_memory",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Send Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gets WhatsApp Voicemail Source URL": {
+            "main": [
+                [
+                    {
+                        "node": "Download Voicemail",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Download Voicemail": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "versionId": "8c666f96-3a98-4275-81fa-86b921e8860e",
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "ef4750618a6f2c555661758a16181cd7cc8ad4a2dbaee17d8de4d749c0e8eeb2"
+    },
+    "id": "575mSLYP8zxw8zZ8",
+    "tags": []
+}

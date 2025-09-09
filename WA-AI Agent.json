@@ -1,0 +1,175 @@
+{
+    "name": "WA-AI Agent",
+    "nodes": [
+        {
+            "parameters": {
+                "updates": [
+                    "messages"
+                ],
+                "options": {}
+            },
+            "type": "n8n-nodes-base.whatsAppTrigger",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "41971e44-0aac-496f-b656-865850c29b54",
+            "name": "WhatsApp Trigger",
+            "webhookId": "3e84c7ef-1202-4b48-9c7b-9304a3b9b1f7",
+            "credentials": {
+                "whatsAppTriggerApi": {
+                    "id": "MywntExp6A6QMXDh",
+                    "name": "WhatsApp OAuth account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=Today is: {{ $now.format(\"YYYY-MM-DD\") }}\n\n{{ \"You are my assistant. Reply concisely to this message from \" + $(\"WhatsApp Trigger\").item.json.contacts[0].profile.name + \": \" + $(\"WhatsApp Trigger\").item.json.messages[0].text.body }}\n\n",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 2.2,
+            "position": [
+                208,
+                0
+            ],
+            "id": "ad32def8-a121-4828-a779-266636fb1e6b",
+            "name": "AI Agent"
+        },
+        {
+            "parameters": {
+                "documentId": {
+                    "__rl": true,
+                    "value": "https://docs.google.com/spreadsheets/d/1ckim3lrorxkbYw0KO7Rtlrh-PALjnmYRo_k18P0tJ4U/edit?gid=0#gid=0",
+                    "mode": "url"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "value": "gid=0",
+                    "mode": "list",
+                    "cachedResultName": "Sheet1",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ckim3lrorxkbYw0KO7Rtlrh-PALjnmYRo_k18P0tJ4U/edit#gid=0"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.googleSheetsTool",
+            "typeVersion": 4.6,
+            "position": [
+                368,
+                208
+            ],
+            "id": "83a6afb4-7467-41ca-9297-e871ac076c75",
+            "name": "Get row(s) in sheet in Google Sheets",
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "ZB6oTW0i2kVgoo2z",
+                    "name": "Google Sheets account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "send",
+                "phoneNumberId": "760681793788329",
+                "recipientPhoneNumber": "93449 41067",
+                "textBody": "hi guys",
+                "additionalFields": {}
+            },
+            "type": "n8n-nodes-base.whatsApp",
+            "typeVersion": 1,
+            "position": [
+                560,
+                0
+            ],
+            "id": "8503dcb7-cf3a-4404-b431-3f6d39e41f36",
+            "name": "Send message",
+            "webhookId": "202b5127-1fd9-4768-ada1-3845aeccb404",
+            "credentials": {
+                "whatsAppApi": {
+                    "id": "FYMr10oaVlZaJUT8",
+                    "name": "WhatsApp account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                80,
+                208
+            ],
+            "id": "74aebe56-5914-4e9a-9a04-85cec71dec80",
+            "name": "Google Gemini Chat Model",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "V9L9bw2J1B9bTVfi",
+                    "name": "Google Gemini(PaLM) Api account"
+                }
+            }
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "WhatsApp Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get row(s) in sheet in Google Sheets": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Send message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "versionId": "3833c95a-a5ea-4e3c-a9a4-7185e5b08081",
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "ef4750618a6f2c555661758a16181cd7cc8ad4a2dbaee17d8de4d749c0e8eeb2"
+    },
+    "id": "T7fZpNtmAkjWXhSS",
+    "tags": []
+}
