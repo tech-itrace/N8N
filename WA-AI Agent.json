@@ -73,9 +73,9 @@
         {
             "parameters": {
                 "operation": "send",
-                "phoneNumberId": "760681793788329",
-                "recipientPhoneNumber": "93449 41067",
-                "textBody": "hi guys",
+                "phoneNumberId": "658047077399745",
+                "recipientPhoneNumber": "+919344941067",
+                "textBody": "={{ $json.output }}",
                 "additionalFields": {}
             },
             "type": "n8n-nodes-base.whatsApp",
@@ -165,7 +165,7 @@
     "settings": {
         "executionOrder": "v1"
     },
-    "versionId": "3833c95a-a5ea-4e3c-a9a4-7185e5b08081",
+    "versionId": "f79001b3-bf2b-49dd-8761-012452afd3db",
     "meta": {
         "templateCredsSetupCompleted": true,
         "instanceId": "ef4750618a6f2c555661758a16181cd7cc8ad4a2dbaee17d8de4d749c0e8eeb2"
