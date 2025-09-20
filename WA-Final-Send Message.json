@@ -1,0 +1,173 @@
+{
+  "name": "WA-Final-Send Message",
+  "nodes": [
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1XbW26jyvNATIZem2_c-QQNjLHMprnzRGQMh_86apjkk/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XbW26jyvNATIZem2_c-QQNjLHMprnzRGQMh_86apjkk/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "ef7419e5-77cb-4681-8cde-9a4a820dcda1",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ZB6oTW0i2kVgoo2z",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nconst results = rows.map(row => {\n  const data = row.json;\n\n  const whatsappMessage = `Hello *${data[\"Name\"]}*,\n📌 Task: ${data[\"Today Task\"]}\n📅 Date: ${new Date().toLocaleDateString()}\n\nPlease complete your task and keep this for your records.`;\n\n  return {\n    json: {\n      phone: data[\"Phone Number\"],\n      message: whatsappMessage,\n      recipientName: data[\"Name\"],\n      task: data[\"Today Task\"]\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "6c52b539-20be-46b9-a7e7-292624d15836",
+      "name": "Prepare WhatsApp Content"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 14
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "55561c06-acbb-4c71-b38b-b3e2a32a052f",
+      "name": "Daily Notice Check - 6 PM"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v22.0/760681793788329/messages\n",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer EAAVkNOhbryMBPT3XYDlkLKWNov2NzgolWPXX8K3GNhXGE3YFf0aQ6wixCaaO48ASlL4SMRFZCIMCgwip8ZAoxtFc04ZATF7IjDpWyAZBTopVkZBLcknqa05eaAzDHHPKuZCYdYJLgc3cPB4zecUlaWMKdIkDE1jfYUKaOF2bEJ5MycRXvAl3QV6ql3PaMkQug2HsZCiFsE2mFokEHQv20Qo0W7baZAjYKW4FzFOjqcP8nwZDZD"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{$json[\"phone\"].toString().replace(/\\D/g, '')}}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text.body",
+              "value": "={{$json[\"message\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "41ba8c8c-4add-4f75-a57d-7d00317018d9",
+      "name": "Send WhatsApp Notice",
+      "executeOnce": false,
+      "notesInFlow": false,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "ztgFiXiRkFazHXHL",
+          "name": "Custom Auth account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Notice Check - 6 PM": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WhatsApp Content": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "54b52647-1e13-4cde-b42b-742394531d6d",
+  "meta": {
+    "instanceId": "ef4750618a6f2c555661758a16181cd7cc8ad4a2dbaee17d8de4d749c0e8eeb2"
+  },
+  "id": "BPBIUufNLiF3wbCj",
+  "tags": []
+}
