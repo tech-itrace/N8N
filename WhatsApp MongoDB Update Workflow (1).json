@@ -1,0 +1,463 @@
+{
+  "name": "WhatsApp MongoDB Update Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {
+          "messageStatusUpdates": []
+        }
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -704,
+        256
+      ],
+      "id": "8d1eb36b-4315-403d-a5cf-789eb6ce2290",
+      "name": "WhatsApp Trigger",
+      "webhookId": "a2cdd6b0-32ac-4099-8d64-f2a259ab397f",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "OwnABxum7ZPskUkJ",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collection": "members",
+        "options": {},
+        "query": "= {\n  \"phoneNumber\": \"{{$json.messages[0].from}}\"\n }"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        256
+      ],
+      "id": "ab19dfd0-081d-4c29-815c-6ac7ec50b0da",
+      "name": "Get All MongoDB Data",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "5PRKLlZynyeYefSZ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the incoming phone number from WhatsApp\nconst whatsappData = $('WhatsApp Trigger').first().json;\n\n// Check if messages array exists\nif (!whatsappData.messages || !Array.isArray(whatsappData.messages) || !whatsappData.messages[0]) {\n  return [{\n    json: {\n      authorized: false,\n      reason: 'WhatsApp message data not found',\n      whatsappData: whatsappData\n    }\n  }];\n}\n\nconst incomingPhone = whatsappData.messages[0].from;\nconst incomingBody = whatsappData.messages[0].text?.body || '';\nconst incomingBodyType = whatsappData.messages[0].type;\n\n// Clean the incoming phone (remove all non-numeric characters)\nconst cleanIncomingPhone = incomingPhone.replace(/[^0-9]/g, '');\n\n// Get all documents from MongoDB\nconst allDocs = $input.all();\n\n// Debug: Log what we're searching for\nconsole.log('Incoming phone (raw):', incomingPhone);\nconsole.log('Incoming phone (cleaned):', cleanIncomingPhone);\nconsole.log('Total documents from DB:', allDocs.length);\n\n// Find if any document has a matching phone number\nlet isAuthorized = false;\nlet matchedPhone = null;\nlet matchedDoc = null;\n\nfor (const item of allDocs) {\n  const doc = item.json;\n  \n  // Debug: Log each document's phone field\n  if (doc.phoneNumber) {\n    console.log('Checking DB phone:', doc.phoneNumber);\n  }\n  \n  // Check all properties in the document for phone-like field names\n  for (const [key, value] of Object.entries(doc)) {\n    const fieldName = key.toLowerCase();\n    \n    // Check if this is a phone field\n    if (fieldName.includes('phone') || fieldName.includes('mobile') || fieldName.includes('contact')) {\n      \n      if (value) {\n        // Clean DB phone number (remove all non-numeric characters)\n        const dbPhone = value.toString().replace(/[^0-9]/g, '');\n        \n        console.log(`Comparing: DB=\"${dbPhone}\" vs Incoming=\"${cleanIncomingPhone}\"`);\n        \n        // Try multiple comparison methods\n        // Method 1: Last 10 digits\n        if (dbPhone.length >= 10 && cleanIncomingPhone.length >= 10) {\n          if (dbPhone.slice(-10) === cleanIncomingPhone.slice(-10)) {\n            isAuthorized = true;\n            matchedPhone = value;\n            matchedDoc = doc;\n            console.log('✅ Match found (last 10 digits)!');\n            break;\n          }\n        }\n        \n        // Method 2: Exact match after cleaning\n        if (dbPhone === cleanIncomingPhone) {\n          isAuthorized = true;\n          matchedPhone = value;\n          matchedDoc = doc;\n          console.log('✅ Match found (exact)!');\n          break;\n        }\n        \n        // Method 3: Check if one contains the other\n        if (dbPhone.includes(cleanIncomingPhone) || cleanIncomingPhone.includes(dbPhone)) {\n          isAuthorized = true;\n          matchedPhone = value;\n          matchedDoc = doc;\n          console.log('✅ Match found (contains)!');\n          break;\n        }\n      }\n    }\n  }\n  \n  if (isAuthorized) break;\n}\n\nreturn [{\n  json: {\n    authorized: isAuthorized,\n    incomingPhone: incomingPhone,\n    incomingPhoneCleaned: cleanIncomingPhone,\n    incomingBody: incomingBody,\n    incomingBodyType: incomingBodyType,\n    matchedPhone: matchedPhone,\n    matchedName: matchedDoc?.name || null,\n    debugInfo: {\n      totalDocsChecked: allDocs.length,\n      rawIncoming: incomingPhone,\n      cleanedIncoming: cleanIncomingPhone\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        256
+      ],
+      "id": "466aebe9-7ff8-4df3-a2ff-ad10d570b821",
+      "name": "Check Phone Authorization"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "auth-check",
+                    "leftValue": "={{ $json.authorized.toString() }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Authorized"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -112,
+        256
+      ],
+      "id": "965ffc77-de0d-40cc-a373-e81d36adc212",
+      "name": "Authorization Check"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.incomingBodyType }}",
+                    "rightValue": "=text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "59047831-fe6f-418a-9abc-e328e532f431"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        96,
+        144
+      ],
+      "id": "26294a19-96ed-4ae3-9665-ba7d990f30ed",
+      "name": "Route Types"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4cd9ff19-5750-4515-bb9f-af14a2f890bf",
+              "name": "text",
+              "value": "={{ $json.incomingBody }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        288,
+        144
+      ],
+      "id": "84050667-0cfc-43b0-9d89-21da6e7efd53",
+      "name": "Map text prompt"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "=You are the \"Community Connect Bot\" - a friendly assistant that helps members search and update information in the 'members' collection.\n\n## 🔐 Current User Identity (AUTOMATICALLY AVAILABLE)\n- **Phone Number:** {{ $('Route Types').item.json.incomingPhone }}\n- **Cleaned Phone:** {{ $('Route Types').item.json.incomingPhoneCleaned }}\n\n**IMPORTANT:** You already know who the current user is from their WhatsApp number. NEVER ask for their phone number. When they say \"my profile\", \"update my...\", \"change my...\", automatically use the phone numbers shown above.\n\n## 📊 Database Schema\n```json\n{\n  \"name\": \"\",\n  \"designation\": \"\",\n  \"organizationName\": \"\",\n  \"workingKnowledge\": \"\",\n  \"email\": \"\",\n  \"phoneNumber\": \"\"\n}\n```\n\n---\n\n## 🔍 SEARCH Operations\n\n### When to Search:\n- User asks to find people by name, skills, organization, or any criteria\n- User asks for contact details of someone else\n- User wants to see who works in a specific domain\n\n### Search Query Examples:\n\n**Search by NAME:**\n```json\n{\n  \"name\": { \"$regex\": \"searchterm\", \"$options\": \"i\" }\n}\n```\n\n**Search by ORGANIZATION:**\n```json\n{\n  \"organizationName\": { \"$regex\": \"searchterm\", \"$options\": \"i\" }\n}\n```\n\n**Search by SKILLS:**\n```json\n{\n  \"workingKnowledge\": { \"$regex\": \"searchterm\", \"$options\": \"i\" }\n}\n```\n\n---\n\n## ✏️ UPDATE Operations (CRITICAL PROCESS)\n\n### When to Update:\nUser says things like:\n- \"update my email to...\"\n- \"change my designation to...\"\n- \"my organization is...\"\n- \"set my name to...\"\n\n### MANDATORY 2-STEP PROCESS:\n\n**STEP 1: Find the Current User's Profile**\n\nAlways search first using this EXACT query:\n```json\n{\n  \"$or\": [\n    { \"phoneNumber\": { \"$regex\": \"{{ $('Route Types').item.json.incomingPhoneCleaned }}\", \"$options\": \"i\" } },\n    { \"phoneNumber\": { \"$regex\": \"{{ $('Route Types').item.json.incomingPhone }}\", \"$options\": \"i\" } }\n  ]\n}\n```\n\n**STEP 2: Update Using the _id from Search**\n\nAfter search returns results, extract the `_id` value (looks like \"507f1f77bcf86cd799439011\" or \"68e9e748c5093d8f38bf9965\").\n\nThen call MongoDB Update tool with:\n- **Update_Key**: The exact _id string from search (e.g., `507f1f77bcf86cd799439011`)\n- **Fields**: JSON containing ONLY the fields to update (DO NOT include _id here)\n\n### Update Format Examples:\n\n**Example 1: Update Email**\n```\nUpdate_Key: 68e9e748c5093d8f38bf9965\nFields: {\"email\": \"fatisittu@gmail.com\"}\n```\n\n**Example 2: Update Designation**\n```\nUpdate_Key: 68e9e748c5093d8f38bf9965\nFields: {\"designation\": \"Senior Manager\"}\n```\n\n**Example 3: Update Multiple Fields**\n```\nUpdate_Key: 68e9e748c5093d8f38bf9965\nFields: {\"name\": \"Anto Fatima\", \"email\": \"anto@example.com\"}\n```\n\n### Field Name Mapping (EXACT camelCase):\n- email → `email`\n- phone/phone number → `phoneNumber`\n- designation/job title/position → `designation`\n- organization/company → `organizationName`\n- name → `name`\n- expertise/skills/knowledge → `workingKnowledge`\n- city/location → `city`\n- address → `address`\n\n### ⚠️ CRITICAL RULES FOR UPDATES:\n1. ✅ **ALWAYS search first** - Don't skip this step\n2. ✅ **Extract the exact _id** from search results\n3. ✅ **Include _id in Fields** JSON parameter\n4. ✅ **Update_Key must match the _id in Fields**\n5. ✅ Use the exact _id value (don't modify it)\n6. ❌ **NEVER ask user for their phone number** - you already have it\n7. ❌ **NEVER update without searching first**\n8. ❌ **NEVER use regex in update operations**\n\n---\n\n## 💬 OUTPUT FORMATTING\n\n### For SEARCH Results:\nDisplay each member in this format:\n\n```\n*Name Here*\n🏢 Organization – Designation\n💼 Expertise: Skills here\n📧 email@example.com\n📞 phone number\n---\n```\n\n**Rules:**\n- Skip any line if that field is empty\n- Show ALL matching results\n- Use exact emojis as shown\n\n### For UPDATE Results:\nAfter successful update:\n\n```\n✅ Updated successfully!\n\nEmail: newemail@example.com\n```\n\n### For NO RESULTS:\n```\n❌ No members found matching your criteria.\n```\n\n### For UPDATE ERRORS:\n```\n❌ Could not find your profile in the database.\n\nPlease contact support for assistance.\n```\n\n---\n\n## 🎯 Response Guidelines\n\n1. **Be conversational and natural** - Don't sound robotic\n2. **Never ask for phone number** - You already have it from WhatsApp\n3. **Always search before update** - No exceptions\n4. **Format output consistently** - Use the templates above\n5. **Don't expose technical details** - Hide queries, _id values, etc.\n6. **Handle errors gracefully** - Provide clear, helpful messages\n7. **Keep responses concise** - Don't repeat unnecessary information\n\n---\n\n## 📝 Common Update Scenarios:\n\n**Scenario: \"update my email to newmail@gmail.com\"**\n1. Automatically search using current user's phone\n2. Get _id from results (e.g., \"abc123...\")\n3. Call update with:\n   - Update_Key: `abc123...`\n   - Fields: `{\"_id\": \"abc123...\", \"email\": \"newmail@gmail.com\"}`\n4. Confirm: \"✅ Updated successfully! Email: newmail@gmail.com\"\n\n**Scenario: \"change my name and designation\"**\n1. Search for current user\n2. Get _id\n3. Call update with both fields:\n   - Fields: `{\"_id\": \"abc123...\", \"name\": \"New Name\", \"designation\": \"New Title\"}`\n4. Confirm what was updated\n\n**Remember:** You are talking to the person via WhatsApp. Their phone number is already known. Never ask them to provide it!"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        144
+      ],
+      "id": "90594add-47a0-48b8-9341-97cca8cb5800",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        384,
+        400
+      ],
+      "id": "c986d5e1-968e-483f-b78c-7048abe3a7ab",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "LxVBKu4y7aePnhtZ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "760681793788329",
+        "recipientPhoneNumber": "={{ $('Route Types').item.json.incomingPhone }}",
+        "textBody": "={{ $json.output.substring(0, 4000) }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        896,
+        144
+      ],
+      "id": "b418f7c5-8367-4f4e-8519-0711c068eead",
+      "name": "Send Response",
+      "webhookId": "010825fa-6dfb-4074-a84c-c6ae36fe120b",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Oge5RFwiPYZgvxLk",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "760681793788329",
+        "recipientPhoneNumber": "={{ $json.incomingPhone }}",
+        "textBody": "Sorry, you are not authorized to use this service.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        96,
+        368
+      ],
+      "id": "1b5b601b-3853-4feb-8441-d72684ffda29",
+      "name": "Send Unauthorized Message",
+      "webhookId": "010825fa-6dfb-4074-a84c-c6ae36fe120b",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Oge5RFwiPYZgvxLk",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=memory_{{ $('Route Types').item.json.incomingPhone }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        544,
+        432
+      ],
+      "id": "32375812-b7e1-4ac1-9089-8d4f3610c4f0",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "collection": "members",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDbTool",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        384
+      ],
+      "id": "1718f6d8-cec5-4a3d-be46-98c025a624a6",
+      "name": "Find documents in MongoDB",
+      "credentials": {
+        "mongoDb": {
+          "id": "5PRKLlZynyeYefSZ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "members",
+        "updateKey": "={{ $fromAI('Update_Key', ``, 'string') }}",
+        "fields": "={{ $fromAI('Fields', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDbTool",
+      "typeVersion": 1.2,
+      "position": [
+        832,
+        576
+      ],
+      "id": "bcb3713c-5664-4ba2-9f37-752f33f71967",
+      "name": "Update documents in MongoDB",
+      "credentials": {
+        "mongoDb": {
+          "id": "5PRKLlZynyeYefSZ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the data from previous node\nconst inputData = $input.item.json;\n\n// Build the update object with ONLY fields that have actual values\nconst updateFields = {};\n\n// List of fields that can be updated\nconst allowedFields = ['name', 'designation', 'workingKnowledge', 'email', 'lastMessage', 'lastMessageDate', 'updatedAt'];\n\n// Only include fields that have actual values (not undefined, not null, not empty string)\nallowedFields.forEach(field => {\n  if (inputData[field] !== undefined && \n      inputData[field] !== null && \n      inputData[field] !== '') {\n    updateFields[field] = inputData[field];\n  }\n});\n\n// IMPORTANT: Create a comma-separated list of field names for MongoDB\nconst fieldsList = Object.keys(updateFields).join(',');\n\n// Return formatted data for MongoDB with dynamic field list\nreturn {\n  json: {\n    phoneNumber: inputData.phoneNumber,\n    responseMessage: inputData.responseMessage,\n    fieldsToUpdate: fieldsList,  // This will be used in MongoDB node\n    ...updateFields\n  }\n};"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        688,
+        592
+      ],
+      "id": "9183f539-a66c-4f2b-b4c9-f7878eb134e4",
+      "name": "Code Tool"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get All MongoDB Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All MongoDB Data": {
+      "main": [
+        [
+          {
+            "node": "Check Phone Authorization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Phone Authorization": {
+      "main": [
+        [
+          {
+            "node": "Authorization Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorization Check": {
+      "main": [
+        [
+          {
+            "node": "Route Types",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Unauthorized Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Types": {
+      "main": [
+        [
+          {
+            "node": "Map text prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map text prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find documents in MongoDB": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update documents in MongoDB": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Tool": {
+      "ai_tool": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "11cee8a5-f6cc-43af-a677-ad5bb4ed7f29",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3b0e5e2c1243900264077c31c39cce95bd15e982a181952029fc9025d078c730"
+  },
+  "id": "rKBkiIS6xS19LmyG",
+  "tags": []
+}

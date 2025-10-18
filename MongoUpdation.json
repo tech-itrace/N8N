@@ -1,0 +1,380 @@
+{
+  "name": "MongoUpdation",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {
+          "messageStatusUpdates": []
+        }
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1328,
+        224
+      ],
+      "id": "1bdf40d5-525f-4da9-b70e-c43e423e2f5c",
+      "name": "WhatsApp Trigger",
+      "webhookId": "a2cdd6b0-32ac-4099-8d64-f2a259ab397f",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "OwnABxum7ZPskUkJ",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "phoneNumber",
+              "value": "={{ $json.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "messageText",
+              "value": "={{ $json.messages[0].text.body }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "messageId",
+              "value": "={{ $json.messages[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "timestamp",
+              "value": "={{ $json.messages[0].timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "phoneNumberId",
+              "value": "={{ $json.metadata.phone_number_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1104,
+        224
+      ],
+      "id": "3373f1c0-128b-492d-b943-b0b8cad8ef14",
+      "name": "Extract Message Data"
+    },
+    {
+      "parameters": {
+        "collection": "members",
+        "options": {},
+        "query": "={{ JSON.stringify({ phoneNumber: $json.phoneNumber }) }}"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        224
+      ],
+      "id": "b2f1d69e-45cf-428a-8e6a-a9bb53d51192",
+      "name": "Find User in MongoDB",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "5PRKLlZynyeYefSZ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "d7cc6ebc-7d37-4f5c-831f-7f7007b90d61",
+              "leftValue": "={{ $json.phoneNumber }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        224
+      ],
+      "id": "6df133dc-7e9d-4ac4-b09f-54b570f6e0a9",
+      "name": "User Exists?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const messageText = $('Extract Message Data').first().json.messageText.toLowerCase().trim();\nconst userData = $input.item.json;\n\n// Get the _id from MongoDB result\nconst userId = userData._id;\nconst phoneNumber = userData.phoneNumber;\n\n// Initialize response\nlet responseMessage = \"\";\nlet shouldUpdate = false;\n\n// Object to store ONLY the fields that need updating\nconst fieldsToUpdate = {};\n\n// Parse different update commands\ntry {\n  // Command: UPDATE DESIGNATION <new_designation>\n  if (messageText.includes(\"update designation\")) {\n    const match = messageText.match(/update designation[:\\s]+(.+)/i);\n    if (match && match[1]) {\n      fieldsToUpdate.designation = match[1].trim();\n      responseMessage = `✅ Designation updated to: ${match[1].trim()}`;\n      shouldUpdate = true;\n    }\n  }\n  \n  // Command: UPDATE EMAIL <new_email>\n  else if (messageText.includes(\"update email\")) {\n    const emailMatch = messageText.match(/([\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,})/i);\n    if (emailMatch && emailMatch[1]) {\n      fieldsToUpdate.email = emailMatch[1];\n      responseMessage = `✅ Email updated to: ${emailMatch[1]}`;\n      shouldUpdate = true;\n    } else {\n      responseMessage = \"❌ Invalid email format. Use: UPDATE EMAIL your@email.com\";\n    }\n  }\n  \n  // Command: UPDATE NAME <new_name>\n  else if (messageText.includes(\"update name\")) {\n    const match = messageText.match(/update name[:\\s]+(.+)/i);\n    if (match && match[1]) {\n      fieldsToUpdate.name = match[1].trim();\n      responseMessage = `✅ Name updated to: ${match[1].trim()}`;\n      shouldUpdate = true;\n    }\n  }\n  \n  // Command: UPDATE STATUS <new_status>\n  else if (messageText.includes(\"update status\")) {\n    const match = messageText.match(/update status[:\\s]+(.+)/i);\n    if (match && match[1]) {\n      const status = match[1].trim().toLowerCase();\n      if ([\"active\", \"inactive\", \"pending\"].includes(status)) {\n        fieldsToUpdate.status = status;\n        responseMessage = `✅ Status updated to: ${status}`;\n        shouldUpdate = true;\n      } else {\n        responseMessage = \"❌ Invalid status. Use: active, inactive, or pending\";\n      }\n    }\n  }\n  \n  // Command: UPDATE FIELD <fieldname> <value>\n  else if (messageText.startsWith(\"update field\")) {\n    const match = messageText.match(/update field[:\\s]+(\\w+)[:\\s]+(.+)/i);\n    if (match && match[1] && match[2]) {\n      const fieldName = match[1].trim();\n      const fieldValue = match[2].trim();\n      fieldsToUpdate[fieldName] = fieldValue;\n      responseMessage = `✅ ${fieldName} updated to: ${fieldValue}`;\n      shouldUpdate = true;\n    }\n  }\n  \n  // Command: HELP\n  else if (messageText === \"help\" || messageText === \"commands\") {\n    responseMessage = `📋 *Available Commands:*\\n\\n` +\n      `1️⃣ UPDATE DESIGNATION <value>\\n` +\n      `2️⃣ UPDATE EMAIL <email>\\n` +\n      `3️⃣ UPDATE NAME <name>\\n` +\n      `4️⃣ UPDATE STATUS <active/inactive/pending>\\n` +\n      `5️⃣ UPDATE FIELD <fieldname> <value>\\n` +\n      `6️⃣ SHOW INFO - View your profile\\n` +\n      `7️⃣ HELP - Show this message\\n\\n` +\n      `Example: UPDATE DESIGNATION Senior Developer`;\n  }\n  \n  // Command: SHOW INFO\n  else if (messageText === \"show info\" || messageText === \"my info\") {\n    responseMessage = `👤 *Your Profile:*\\n\\n` +\n      `📱 Phone: ${userData.phoneNumber || 'N/A'}\\n` +\n      `👨‍💼 Name: ${userData.name || 'N/A'}\\n` +\n      `💼 Designation: ${userData.designation || 'N/A'}\\n` +\n      `📧 Email: ${userData.email || 'N/A'}\\n` +\n      `📊 Status: ${userData.status || 'N/A'}\\n\\n` +\n      `Type HELP to see available commands.`;\n  }\n  \n  // Unknown command\n  else {\n    responseMessage = `❓ Unknown command: \"${messageText}\"\\n\\nType HELP to see available commands.`;\n  }\n  \n  // Always add timestamp fields when updating\n  if (shouldUpdate) {\n    fieldsToUpdate.lastMessage = messageText;\n    fieldsToUpdate.lastMessageDate = new Date().toISOString();\n    fieldsToUpdate.updatedAt = new Date().toISOString();\n  }\n  \n} catch (error) {\n  responseMessage = `❌ Error processing command: ${error.message}\\n\\nType HELP for available commands.`;\n}\n\n// Return data with proper structure - only include fields that have values\nconst outputData = {\n  phoneNumber: phoneNumber,\n  responseMessage: responseMessage,\n  hasUpdate: shouldUpdate\n};\n\n// Only add fields that exist in fieldsToUpdate\nif (shouldUpdate) {\n  Object.keys(fieldsToUpdate).forEach(key => {\n    if (fieldsToUpdate[key] !== undefined && fieldsToUpdate[key] !== null) {\n      outputData[key] = fieldsToUpdate[key];\n    }\n  });\n}\n\nreturn {\n  json: outputData\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        128
+      ],
+      "id": "4a083f3a-c9f9-4368-96d3-cfb9ff647b7c",
+      "name": "Parse Command"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.hasUpdate }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        128
+      ],
+      "id": "cc33e92a-bc57-42d7-a14e-a2bb2b5561c9",
+      "name": "Needs DB Update?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "members",
+        "updateKey": "phoneNumber",
+        "fields": "=={{ Object.keys($json).filter(key => !['phoneNumber', 'responseMessage', 'hasUpdate', '_id'].includes(key) && $json[key] !== undefined && $json[key] !== null && $json[key] !== '').join(',') }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "10d44b52-2d84-4dde-9baa-45417f2e7058",
+      "name": "Update MongoDB",
+      "credentials": {
+        "mongoDb": {
+          "id": "5PRKLlZynyeYefSZ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $('Extract Message Data').item.json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $('Extract Message Data').item.json.phoneNumber }}",
+        "textBody": "={{ $('Parse Command').item.json.responseMessage }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        432,
+        128
+      ],
+      "id": "2a29f65b-92af-46bd-ba28-66e084401606",
+      "name": "Send WhatsApp Response",
+      "webhookId": "605d6fc8-e763-462b-b7b9-364248e86fc7",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Oge5RFwiPYZgvxLk",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $('Extract Message Data').item.json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $('Extract Message Data').item.json.phoneNumber }}",
+        "textBody": "❌ Sorry, your phone number is not registered in our system. Please contact support.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        352
+      ],
+      "id": "220fbcd1-6622-4248-86ba-6e7047f7229a",
+      "name": "Send User Not Found",
+      "webhookId": "0d26429b-ee2e-4206-8064-71dfade7cc9e",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Oge5RFwiPYZgvxLk",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the data from previous node\nconst inputData = $input.item.json;\n\n// Build the update object with ONLY fields that have actual values\nconst updateFields = {};\n\n// List of fields that can be updated\nconst allowedFields = ['name', 'designation', 'workingKnowledge', 'email', 'lastMessage', 'lastMessageDate', 'updatedAt'];\n\n// Only include fields that have actual values (not undefined, not null, not empty string)\nallowedFields.forEach(field => {\n  if (inputData[field] !== undefined && \n      inputData[field] !== null && \n      inputData[field] !== '') {\n    updateFields[field] = inputData[field];\n  }\n});\n\n// IMPORTANT: Create a comma-separated list of field names for MongoDB\nconst fieldsList = Object.keys(updateFields).join(',');\n\n// Return formatted data for MongoDB with dynamic field list\nreturn {\n  json: {\n    phoneNumber: inputData.phoneNumber,\n    responseMessage: inputData.responseMessage,\n    fieldsToUpdate: fieldsList,  // This will be used in MongoDB node\n    ...updateFields\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        32
+      ],
+      "id": "87da7a0e-37cb-4245-9b2b-cfb943268995",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Data": {
+      "main": [
+        [
+          {
+            "node": "Find User in MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find User in MongoDB": {
+      "main": [
+        [
+          {
+            "node": "User Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Exists?": {
+      "main": [
+        [
+          {
+            "node": "Send User Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Command": {
+      "main": [
+        [
+          {
+            "node": "Needs DB Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs DB Update?": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send WhatsApp Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update MongoDB": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "088913fe-70c5-46d1-96bd-68d1e881afb4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3b0e5e2c1243900264077c31c39cce95bd15e982a181952029fc9025d078c730"
+  },
+  "id": "WV9CumrbPCk0zD9L",
+  "tags": []
+}
